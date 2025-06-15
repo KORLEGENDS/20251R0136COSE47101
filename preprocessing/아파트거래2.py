@@ -242,7 +242,7 @@ def analyze_file_structure(input_file):
 
 def main():
 
-    input_file = "(월) 행정구역별 아파트매매거래현황.csv"
+    input_file = "../data/transactions/(월) 행정구역별 아파트매매거래현황.csv"
     output_file = "result/신도시 지역 아파트매매거래현황.csv"
     
     try:

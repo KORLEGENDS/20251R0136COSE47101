@@ -86,7 +86,7 @@ def split_date_column(input_file, output_file):
 
 
 if __name__ == "__main__":
-    input_filename = "한국부동산원_지역별 청약 경쟁률 정보_20250430.csv"
+    input_filename = "../data/competition/한국부동산원_지역별 청약 경쟁률 정보_20250430.csv"
     output_filename = "result/한국부동산원_지역별 청약 경쟁률 정보_분리된날짜.csv"
     
     # 함수 실행

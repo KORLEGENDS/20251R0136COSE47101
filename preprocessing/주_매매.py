@@ -60,7 +60,7 @@ def filter_housing_price_data(input_file, output_file):
 # 메인 실행 코드
 if __name__ == "__main__":
     # 파일 경로 설정
-    input_file = '가격지수/(주) 매매가격지수.csv'
+    input_file = '../data/transactions/(주) 매매가격지수.csv'
     output_file = 'result/주별_매매가_추출.csv'
     
     try:

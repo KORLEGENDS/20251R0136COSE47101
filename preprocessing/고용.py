@@ -191,7 +191,7 @@ def search_regions_interactive(input_file):
 # 메인 실행 코드
 if __name__ == "__main__":
     # 파일 경로 설정
-    input_file = '시군구 연령별 취업자 및 고용률.csv'
+    input_file = '../data/else/시군구 연령별 취업자 및 고용률.csv'
     output_file = 'result/특정지역_취업자_고용률.csv'
     
     # 추출할 지역 리스트

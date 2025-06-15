@@ -142,7 +142,7 @@ def validate_column_pattern(input_file):
 # 메인 실행 코드
 if __name__ == "__main__":
     # 파일 경로 설정
-    input_file = '가격지수/(월) 매매가격지수_아파트.csv'
+    input_file = '../data/transactions/(월) 매매가격지수_아파트.csv'
     output_file = 'result/d.csv'
     
     try:

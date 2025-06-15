@@ -217,7 +217,7 @@ def main():
     """
     메인 실행 함수
     """
-    input_file = "(월) 행정구역별 아파트거래현황.csv"  # 입력 파일명
+    input_file = "../data/transactions/(월) 행정구역별 아파트거래현황.csv"  # 입력 파일명
     output_file = "result/추출된_아파트거래현황_2013-2024.csv"  # 출력 파일명
     
     try:
@@ -317,4 +317,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        alternative_method("(월) 행정구역별 아파트거래현황.csv", "result/추출된_아파트거래현황_2013-2024.csv")
+        alternative_method("../data/transactions/(월) 행정구역별 아파트거래현황.csv", "result/추출된_아파트거래현황_2013-2024.csv")
