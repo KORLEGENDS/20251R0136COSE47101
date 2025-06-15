@@ -114,14 +114,34 @@ def _load_layer(layer: str, base_dir: Path) -> pd.DataFrame:
                             break
             except Exception:
                 header_row = 0
-            df = pd.read_csv(
-                f,
-                skiprows=header_row,
-                header=0,
-                encoding="cp949",
-                engine="python",
-                on_bad_lines="skip"
-            )
+            
+            # 강건한 CSV 읽기: 여러 인코딩 시도
+            df = None
+            for enc in ['cp949', 'utf-8', 'euc-kr']:
+                try:
+                    df = pd.read_csv(
+                        f,
+                        skiprows=header_row,
+                        header=0,
+                        encoding=enc,
+                        engine="python",
+                        on_bad_lines="skip"
+                    )
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            # 마지막 수단: errors='ignore' 옵션 사용
+            if df is None:
+                df = pd.read_csv(
+                    f,
+                    skiprows=header_row,
+                    header=0,
+                    encoding="utf-8",
+                    errors="ignore",
+                    engine="python",
+                    on_bad_lines="skip"
+                )
             # 로드된 컬럼 로깅 및 단지명 컬럼 리네이밍
             logging.info("Loaded B columns from %s (header at row %d) → %s", f, header_row, df.columns.tolist())
             for src in ["단지명","complex","단지"]:
