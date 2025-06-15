@@ -2,406 +2,473 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
-from sklearn.manifold import TSNE
+from sklearn.metrics import silhouette_score, calinski_harabasz_score
 import warnings
+import os
 warnings.filterwarnings('ignore')
 
-# 한글 폰트 설정
+# Set matplotlib backend and font
 plt.rcParams['font.family'] = 'DejaVu Sans'
 plt.rcParams['axes.unicode_minus'] = False
 
-class RealEstateClusteringAnalysis:
-    def __init__(self):
-        """
-        부동산 데이터 클러스터링 분석 클래스
-        """
-        self.data_dict = {}
-        self.processed_data = None
-        self.scaler = None
-        self.cluster_results = {}
-        
-    def load_data(self):
-        """
-        전처리된 데이터 파일들을 로드
-        """
-        print("데이터 로딩 중...")
-        
-        # 1. 청약 경쟁률 데이터
-        try:
-            competition_data = pd.read_csv('preprocessing/result/한국부동산원_지역별 청약 경쟁률 정보_분리된날짜.csv')
-            self.data_dict['competition'] = competition_data
-            print(f"청약 경쟁률 데이터: {competition_data.shape}")
-        except Exception as e:
-            print(f"청약 경쟁률 데이터 로딩 실패: {e}")
-            
-        # 2. 지역내총생산 데이터
-        try:
-            gdp_data = pd.read_csv('preprocessing/result/지역내총생산_시장가격_2013년이후.csv')
-            self.data_dict['gdp'] = gdp_data
-            print(f"지역내총생산 데이터: {gdp_data.shape}")
-        except Exception as e:
-            print(f"지역내총생산 데이터 로딩 실패: {e}")
-            
-        # 3. 미분양주택현황 데이터
-        try:
-            unsold_data = pd.read_csv('preprocessing/result/미분양주택현황_정리_2013_2024.csv')
-            self.data_dict['unsold'] = unsold_data
-            print(f"미분양주택현황 데이터: {unsold_data.shape}")
-        except Exception as e:
-            print(f"미분양주택현황 데이터 로딩 실패: {e}")
-            
-        # 4. 취업자 고용률 데이터
-        try:
-            employment_data = pd.read_csv('preprocessing/result/특정지역_취업자_고용률.csv')
-            self.data_dict['employment'] = employment_data
-            print(f"취업자 고용률 데이터: {employment_data.shape}")
-        except Exception as e:
-            print(f"취업자 고용률 데이터 로딩 실패: {e}")
-            
-        # 5. 아파트 거래 데이터
-        try:
-            apt_data = pd.read_csv('preprocessing/result/추출된_아파트거래현황_2013-2024.csv')
-            self.data_dict['apartment'] = apt_data
-            print(f"아파트 거래 데이터: {apt_data.shape}")
-        except Exception as e:
-            print(f"아파트 거래 데이터 로딩 실패: {e}")
-            
-    def prepare_clustering_data(self):
-        """
-        클러스터링을 위한 데이터 전처리
-        """
-        print("\n클러스터링 데이터 준비 중...")
-        
-        # 청약 경쟁률 데이터 집계
-        if 'competition' in self.data_dict:
-            comp_data = self.data_dict['competition'].copy()
-            
-            # 지역별 평균 경쟁률 계산
-            region_stats = comp_data.groupby('시도').agg({
-                '특별공급 경쟁률': ['mean', 'std'],
-                '일반공급 경쟁률': ['mean', 'std'],
-                '특별공급 공급세대수': 'sum',
-                '일반공급 공급세대수': 'sum'
-            }).round(2)
-            
-            # 컬럼명 정리
-            region_stats.columns = ['특별공급_경쟁률_평균', '특별공급_경쟁률_표준편차',
-                                  '일반공급_경쟁률_평균', '일반공급_경쟁률_표준편차',
-                                  '특별공급_총세대수', '일반공급_총세대수']
-            
-            region_stats = region_stats.reset_index()
-            
-        # GDP 데이터 처리
-        if 'gdp' in self.data_dict:
-            gdp_data = self.data_dict['gdp'].copy()
-            
-            # 명목 GDP만 추출하고 최근 3년 평균 계산
-            gdp_nominal = gdp_data[gdp_data['항목'] == '명목'].copy()
-            recent_years = ['2021 년', '2022 년', '2023 년']
-            
-            gdp_stats = gdp_nominal.groupby('시도별')[recent_years].mean().round(0)
-            gdp_stats['GDP_평균'] = gdp_stats.mean(axis=1)
-            gdp_stats = gdp_stats[['GDP_평균']].reset_index()
-            gdp_stats.columns = ['시도', 'GDP_평균']
-            
-        # 데이터 병합
-        if 'competition' in self.data_dict and 'gdp' in self.data_dict:
-            merged_data = pd.merge(region_stats, gdp_stats, left_on='시도', right_on='시도', how='inner')
-            
-            # 수치형 컬럼만 선택
-            numeric_cols = ['특별공급_경쟁률_평균', '일반공급_경쟁률_평균', 
-                          '특별공급_총세대수', '일반공급_총세대수', 'GDP_평균']
-            
-            # 결측치 처리
-            for col in numeric_cols:
-                merged_data[col] = pd.to_numeric(merged_data[col], errors='coerce')
-                merged_data[col] = merged_data[col].fillna(merged_data[col].median())
-            
-            self.processed_data = merged_data
-            print(f"병합된 데이터 형태: {merged_data.shape}")
-            print(f"클러스터링 대상 지역: {list(merged_data['시도'])}")
-            
-        return self.processed_data
+def clean_numeric_data(series):
+    """Clean numeric data containing strings like (△151)"""
+    # Remove parentheses and content, convert to numeric
+    cleaned = series.astype(str).str.replace(r'\(.*\)', '0', regex=True)
+    return pd.to_numeric(cleaned, errors='coerce').fillna(0)
+
+def create_region_mapping():
+    """Create region name mapping dictionary"""
+    return {
+        '서울': 'Seoul',
+        '부산': 'Busan', 
+        '대구': 'Daegu',
+        '인천': 'Incheon',
+        '광주': 'Gwangju',
+        '대전': 'Daejeon',
+        '울산': 'Ulsan',
+        '세종': 'Sejong',
+        '경기': 'Gyeonggi',
+        '강원': 'Gangwon',
+        '충북': 'Chungbuk',
+        '충남': 'Chungnam',
+        '전북': 'Jeonbuk',
+        '전남': 'Jeonnam',
+        '경북': 'Gyeongbuk',
+        '경남': 'Gyeongnam',
+        '제주': 'Jeju'
+    }
+
+def create_gdp_mapping():
+    """Create GDP region name mapping"""
+    return {
+        '서울특별시': 'Seoul',
+        '부산광역시': 'Busan',
+        '대구광역시': 'Daegu', 
+        '인천광역시': 'Incheon',
+        '광주광역시': 'Gwangju',
+        '대전광역시': 'Daejeon',
+        '울산광역시': 'Ulsan',
+        '세종특별자치시': 'Sejong',
+        '경기도': 'Gyeonggi',
+        '강원특별자치도': 'Gangwon',
+        '충청북도': 'Chungbuk',
+        '충청남도': 'Chungnam',
+        '전북특별자치도': 'Jeonbuk',
+        '전라남도': 'Jeonnam',
+        '경상북도': 'Gyeongbuk',
+        '경상남도': 'Gyeongnam',
+        '제주특별자치도': 'Jeju'
+    }
+
+def load_and_prepare_data():
+    """Load and preprocess data"""
+    print("Loading data...")
     
-    def perform_clustering(self):
-        """
-        다양한 클러스터링 기법 적용
-        """
-        if self.processed_data is None:
-            print("데이터가 준비되지 않았습니다.")
-            return
-            
-        print("\n클러스터링 분석 수행 중...")
-        
-        # 클러스터링용 특징 데이터 준비
-        feature_cols = ['특별공급_경쟁률_평균', '일반공급_경쟁률_평균', 
-                       '특별공급_총세대수', '일반공급_총세대수', 'GDP_평균']
-        
-        X = self.processed_data[feature_cols].copy()
-        
-        # 데이터 표준화
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
-        
-        # 1. K-means 클러스터링 (k=3,4,5)
-        for k in [3, 4, 5]:
-            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-            labels = kmeans.fit_predict(X_scaled)
-            
-            # 클러스터링 품질 지표 계산
-            silhouette = silhouette_score(X_scaled, labels)
-            calinski = calinski_harabasz_score(X_scaled, labels)
-            davies_bouldin = davies_bouldin_score(X_scaled, labels)
-            
-            self.cluster_results[f'kmeans_k{k}'] = {
-                'labels': labels,
-                'silhouette': silhouette,
-                'calinski_harabasz': calinski,
-                'davies_bouldin': davies_bouldin,
-                'model': kmeans
-            }
-            
-            print(f"K-means (k={k}) - Silhouette: {silhouette:.3f}, "
-                  f"Calinski-Harabasz: {calinski:.1f}, Davies-Bouldin: {davies_bouldin:.3f}")
-        
-        # 2. 계층적 클러스터링
-        for k in [3, 4]:
-            agg_clustering = AgglomerativeClustering(n_clusters=k, linkage='ward')
-            labels = agg_clustering.fit_predict(X_scaled)
-            
-            silhouette = silhouette_score(X_scaled, labels)
-            calinski = calinski_harabasz_score(X_scaled, labels)
-            davies_bouldin = davies_bouldin_score(X_scaled, labels)
-            
-            self.cluster_results[f'hierarchical_k{k}'] = {
-                'labels': labels,
-                'silhouette': silhouette,
-                'calinski_harabasz': calinski,
-                'davies_bouldin': davies_bouldin,
-                'model': agg_clustering
-            }
-            
-            print(f"계층적 클러스터링 (k={k}) - Silhouette: {silhouette:.3f}, "
-                  f"Calinski-Harabasz: {calinski:.1f}, Davies-Bouldin: {davies_bouldin:.3f}")
-        
-        # 3. DBSCAN
-        for eps in [0.5, 1.0, 1.5]:
-            dbscan = DBSCAN(eps=eps, min_samples=2)
-            labels = dbscan.fit_predict(X_scaled)
-            
-            if len(set(labels)) > 1:  # 클러스터가 1개 이상인 경우만
-                silhouette = silhouette_score(X_scaled, labels)
-                n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-                
-                self.cluster_results[f'dbscan_eps{eps}'] = {
-                    'labels': labels,
-                    'silhouette': silhouette,
-                    'n_clusters': n_clusters,
-                    'model': dbscan
-                }
-                
-                print(f"DBSCAN (eps={eps}) - 클러스터 수: {n_clusters}, Silhouette: {silhouette:.3f}")
+    # Load subscription competition data
+    competition_data = pd.read_csv('../preprocessing/result/한국부동산원_지역별 청약 경쟁률 정보_분리된날짜.csv')
+    print(f"Competition data shape: {competition_data.shape}")
     
-    def visualize_clusters(self):
-        """
-        클러스터링 결과 시각화
-        """
-        if not self.cluster_results:
-            print("클러스터링 결과가 없습니다.")
-            return
-            
-        print("\n클러스터링 결과 시각화 중...")
-        
-        # 특징 데이터 준비
-        feature_cols = ['특별공급_경쟁률_평균', '일반공급_경쟁률_평균', 
-                       '특별공급_총세대수', '일반공급_총세대수', 'GDP_평균']
-        X = self.processed_data[feature_cols].copy()
-        X_scaled = self.scaler.transform(X)
-        
-        # PCA로 2차원 축소
-        pca = PCA(n_components=2)
-        X_pca = pca.fit_transform(X_scaled)
-        
-        # 최적 K-means 결과 선택 (Silhouette 점수 기준)
-        best_kmeans = max([k for k in self.cluster_results.keys() if 'kmeans' in k], 
-                         key=lambda x: self.cluster_results[x]['silhouette'])
-        
-        # 시각화
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle('Real Estate Data Clustering Analysis', fontsize=16, fontweight='bold')
-        
-        # 1. 최적 K-means 결과
-        ax = axes[0, 0]
-        labels = self.cluster_results[best_kmeans]['labels']
-        scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap='viridis', alpha=0.7)
-        ax.set_title(f'Best K-means Clustering\n(Silhouette: {self.cluster_results[best_kmeans]["silhouette"]:.3f})')
-        ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.2%} variance)')
-        ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.2%} variance)')
-        
-        # 지역명 표시
-        for i, region in enumerate(self.processed_data['시도']):
-            ax.annotate(region, (X_pca[i, 0], X_pca[i, 1]), 
-                       xytext=(5, 5), textcoords='offset points', fontsize=8)
-        
-        # 2. 계층적 클러스터링 결과
-        ax = axes[0, 1]
-        if 'hierarchical_k4' in self.cluster_results:
-            labels = self.cluster_results['hierarchical_k4']['labels']
-            scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap='plasma', alpha=0.7)
-            ax.set_title(f'Hierarchical Clustering (k=4)\n(Silhouette: {self.cluster_results["hierarchical_k4"]["silhouette"]:.3f})')
-            ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.2%} variance)')
-            ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.2%} variance)')
-        
-        # 3. 클러스터링 품질 지표 비교
-        ax = axes[0, 2]
-        methods = []
-        silhouette_scores = []
-        
-        for method, result in self.cluster_results.items():
-            if 'silhouette' in result:
-                methods.append(method.replace('_', '\n'))
-                silhouette_scores.append(result['silhouette'])
-        
-        bars = ax.bar(range(len(methods)), silhouette_scores, color='skyblue', alpha=0.7)
-        ax.set_title('Silhouette Score Comparison')
-        ax.set_ylabel('Silhouette Score')
-        ax.set_xticks(range(len(methods)))
-        ax.set_xticklabels(methods, rotation=45, ha='right')
-        
-        # 값 표시
-        for i, bar in enumerate(bars):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                   f'{height:.3f}', ha='center', va='bottom')
-        
-        # 4. 특징별 클러스터 분포 (박스플롯)
-        ax = axes[1, 0]
-        cluster_data = self.processed_data.copy()
-        cluster_data['cluster'] = self.cluster_results[best_kmeans]['labels']
-        
-        # GDP 평균 기준 박스플롯
-        cluster_gdp = [cluster_data[cluster_data['cluster'] == i]['GDP_평균'].values 
-                      for i in range(len(set(labels)))]
-        
-        box_plot = ax.boxplot(cluster_gdp, labels=[f'Cluster {i}' for i in range(len(cluster_gdp))])
-        ax.set_title('GDP Distribution by Cluster')
-        ax.set_ylabel('GDP Average (억원)')
-        
-        # 5. 경쟁률 분포
-        ax = axes[1, 1]
-        competition_data = [cluster_data[cluster_data['cluster'] == i]['일반공급_경쟁률_평균'].values 
-                           for i in range(len(set(labels)))]
-        
-        box_plot = ax.boxplot(competition_data, labels=[f'Cluster {i}' for i in range(len(competition_data))])
-        ax.set_title('Competition Rate Distribution by Cluster')
-        ax.set_ylabel('Average Competition Rate')
-        
-        # 6. 클러스터별 지역 정보 테이블
-        ax = axes[1, 2]
-        ax.axis('off')
-        
-        # 클러스터별 지역 정리
-        cluster_info = []
-        for cluster_id in range(len(set(labels))):
-            regions = cluster_data[cluster_data['cluster'] == cluster_id]['시도'].tolist()
-            cluster_info.append(f"Cluster {cluster_id}: {', '.join(regions)}")
-        
-        table_text = '\n\n'.join(cluster_info)
-        ax.text(0.1, 0.9, 'Cluster Composition:\n\n' + table_text, 
-               transform=ax.transAxes, fontsize=10, verticalalignment='top',
-               bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.5))
-        
-        plt.tight_layout()
-        plt.savefig('clustering_analysis_results.png', dpi=300, bbox_inches='tight')
-        plt.show()
-        
-        # 클러스터링 결과 요약 출력
-        print("\n=== 클러스터링 분석 결과 요약 ===")
-        print(f"최적 클러스터링 방법: {best_kmeans}")
-        print(f"Silhouette Score: {self.cluster_results[best_kmeans]['silhouette']:.3f}")
-        print(f"Calinski-Harabasz Index: {self.cluster_results[best_kmeans]['calinski_harabasz']:.1f}")
-        print(f"Davies-Bouldin Index: {self.cluster_results[best_kmeans]['davies_bouldin']:.3f}")
-        
-        print("\n클러스터별 지역 구성:")
-        for cluster_id in range(len(set(labels))):
-            regions = cluster_data[cluster_data['cluster'] == cluster_id]['시도'].tolist()
-            print(f"Cluster {cluster_id}: {', '.join(regions)}")
+    # Load GDP data
+    gdp_data = pd.read_csv('../preprocessing/result/지역내총생산_시장가격_2013년이후.csv')
+    print(f"GDP data shape: {gdp_data.shape}")
     
-    def generate_cluster_statistics(self):
-        """
-        클러스터별 상세 통계 생성
-        """
-        if not self.cluster_results or self.processed_data is None:
-            print("클러스터링 결과나 데이터가 없습니다.")
-            return
+    # Region name mapping
+    region_mapping = create_region_mapping()
+    gdp_mapping = create_gdp_mapping()
+    
+    # Clean competition data
+    competition_data['특별공급 경쟁률'] = clean_numeric_data(competition_data['특별공급 경쟁률'])
+    competition_data['일반공급 경쟁률'] = clean_numeric_data(competition_data['일반공급 경쟁률'])
+    competition_data['특별공급 공급세대수'] = clean_numeric_data(competition_data['특별공급 공급세대수'])
+    competition_data['일반공급 공급세대수'] = clean_numeric_data(competition_data['일반공급 공급세대수'])
+    
+    # Aggregate by region
+    region_stats = competition_data.groupby('시도').agg({
+        '특별공급 경쟁률': 'mean',
+        '일반공급 경쟁률': 'mean',
+        '특별공급 공급세대수': 'sum',
+        '일반공급 공급세대수': 'sum'
+    }).round(2)
+    
+    region_stats.columns = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                           'Special_Supply_Total_Units', 'General_Supply_Total_Units']
+    region_stats = region_stats.reset_index()
+    
+    # Apply region mapping
+    region_stats['Region_EN'] = region_stats['시도'].map(region_mapping)
+    
+    # Process GDP data (nominal GDP, recent 3-year average)
+    gdp_nominal = gdp_data[gdp_data['항목'] == '명목'].copy()
+    # Exclude national data
+    gdp_nominal = gdp_nominal[gdp_nominal['시도별'] != '전국']
+    
+    recent_years = ['2021 년', '2022 년', '2023 년']
+    
+    # Convert GDP data to numeric
+    for year in recent_years:
+        gdp_nominal[year] = pd.to_numeric(gdp_nominal[year], errors='coerce')
+    
+    gdp_stats = gdp_nominal.groupby('시도별')[recent_years].mean().round(0)
+    gdp_stats['GDP_Average'] = gdp_stats.mean(axis=1)
+    gdp_stats = gdp_stats[['GDP_Average']].reset_index()
+    
+    # Apply GDP region mapping
+    gdp_stats['Region_EN'] = gdp_stats['시도별'].map(gdp_mapping)
+    
+    # Merge data
+    merged_data = pd.merge(region_stats, gdp_stats[['Region_EN', 'GDP_Average']], on='Region_EN', how='inner')
+    
+    # Handle missing values
+    numeric_cols = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                   'Special_Supply_Total_Units', 'General_Supply_Total_Units', 'GDP_Average']
+    
+    for col in numeric_cols:
+        merged_data[col] = pd.to_numeric(merged_data[col], errors='coerce')
+        merged_data[col] = merged_data[col].fillna(merged_data[col].median())
+    
+    print(f"Final merged data shape: {merged_data.shape}")
+    print(f"Regions included: {list(merged_data['Region_EN'])}")
+    print("\nData summary:")
+    print(merged_data[numeric_cols].describe())
+    
+    return merged_data
+
+def perform_clustering_analysis(data):
+    """Perform comprehensive clustering analysis"""
+    print("\nPerforming clustering analysis...")
+    
+    feature_cols = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                   'Special_Supply_Total_Units', 'General_Supply_Total_Units', 'GDP_Average']
+    
+    X = data[feature_cols].copy()
+    
+    # Standardize features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    results = {}
+    
+    # K-means clustering with different k values
+    for k in [3, 4, 5]:
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(X_scaled)
+        
+        silhouette = silhouette_score(X_scaled, labels)
+        calinski = calinski_harabasz_score(X_scaled, labels)
+        
+        results[f'kmeans_k{k}'] = {
+            'labels': labels,
+            'silhouette': silhouette,
+            'calinski_harabasz': calinski,
+            'model': kmeans
+        }
+        
+        print(f"K-means (k={k}) - Silhouette: {silhouette:.3f}, Calinski-Harabasz: {calinski:.1f}")
+    
+    # Hierarchical clustering
+    for k in [3, 4]:
+        agg_clustering = AgglomerativeClustering(n_clusters=k, linkage='ward')
+        labels = agg_clustering.fit_predict(X_scaled)
+        
+        silhouette = silhouette_score(X_scaled, labels)
+        calinski = calinski_harabasz_score(X_scaled, labels)
+        
+        results[f'hierarchical_k{k}'] = {
+            'labels': labels,
+            'silhouette': silhouette,
+            'calinski_harabasz': calinski,
+            'model': agg_clustering
+        }
+        
+        print(f"Hierarchical clustering (k={k}) - Silhouette: {silhouette:.3f}, Calinski-Harabasz: {calinski:.1f}")
+    
+    return results, X_scaled, scaler
+
+def create_comprehensive_visualization(data, results, X_scaled):
+    """Create comprehensive visualization of clustering results"""
+    print("\nCreating visualizations...")
+    
+    # Select best clustering method
+    best_method = max(results.keys(), key=lambda x: results[x]['silhouette'])
+    best_labels = results[best_method]['labels']
+    
+    # PCA for dimensionality reduction
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    # Create comprehensive plot
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig.suptitle('Real Estate Data Clustering Analysis', fontsize=16, fontweight='bold')
+    
+    # 1. Best clustering result with PCA
+    ax = axes[0, 0]
+    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=best_labels, cmap='viridis', alpha=0.7, s=100)
+    ax.set_title(f'Best Clustering: {best_method}\n(Silhouette: {results[best_method]["silhouette"]:.3f})')
+    ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.2%} variance)')
+    ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.2%} variance)')
+    
+    # Add region labels
+    for i, region in enumerate(data['Region_EN']):
+        ax.annotate(region, (X_pca[i, 0], X_pca[i, 1]), 
+                   xytext=(5, 5), textcoords='offset points', fontsize=8)
+    
+    # 2. Silhouette score comparison
+    ax = axes[0, 1]
+    methods = list(results.keys())
+    silhouette_scores = [results[method]['silhouette'] for method in methods]
+    
+    bars = ax.bar(range(len(methods)), silhouette_scores, color='skyblue', alpha=0.7)
+    ax.set_title('Silhouette Score Comparison')
+    ax.set_ylabel('Silhouette Score')
+    ax.set_xticks(range(len(methods)))
+    ax.set_xticklabels([m.replace('_', '\n') for m in methods], rotation=45, ha='right')
+    
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+               f'{height:.3f}', ha='center', va='bottom', fontsize=8)
+    
+    # 3. GDP vs Competition Rate scatter
+    ax = axes[0, 2]
+    cluster_data = data.copy()
+    cluster_data['cluster'] = best_labels
+    
+    for cluster_id in range(len(set(best_labels))):
+        cluster_subset = cluster_data[cluster_data['cluster'] == cluster_id]
+        ax.scatter(cluster_subset['GDP_Average'], cluster_subset['General_Supply_Competition_Rate'], 
+                  alpha=0.7, s=60, label=f'Cluster {cluster_id}')
+    
+    ax.set_title('GDP vs Competition Rate')
+    ax.set_xlabel('GDP Average (100M KRW)')
+    ax.set_ylabel('General Supply Competition Rate')
+    ax.legend()
+    
+    # 4. GDP distribution by cluster
+    ax = axes[1, 0]
+    for cluster_id in range(len(set(best_labels))):
+        cluster_gdp = cluster_data[cluster_data['cluster'] == cluster_id]['GDP_Average']
+        ax.scatter([cluster_id] * len(cluster_gdp), cluster_gdp, 
+                  alpha=0.7, s=60, label=f'Cluster {cluster_id}')
+    
+    ax.set_title('GDP Distribution by Cluster')
+    ax.set_xlabel('Cluster')
+    ax.set_ylabel('GDP Average (100M KRW)')
+    ax.legend()
+    
+    # 5. Supply units distribution
+    ax = axes[1, 1]
+    for cluster_id in range(len(set(best_labels))):
+        cluster_supply = cluster_data[cluster_data['cluster'] == cluster_id]['General_Supply_Total_Units']
+        ax.scatter([cluster_id] * len(cluster_supply), cluster_supply, 
+                  alpha=0.7, s=60, label=f'Cluster {cluster_id}')
+    
+    ax.set_title('Supply Units Distribution by Cluster')
+    ax.set_xlabel('Cluster')
+    ax.set_ylabel('General Supply Total Units')
+    ax.legend()
+    
+    # 6. Cluster size pie chart
+    ax = axes[1, 2]
+    cluster_counts = cluster_data['cluster'].value_counts().sort_index()
+    colors = plt.cm.viridis(np.linspace(0, 1, len(cluster_counts)))
+    
+    wedges, texts, autotexts = ax.pie(cluster_counts.values, 
+                                     labels=[f'Cluster {i}' for i in cluster_counts.index],
+                                     autopct='%1.1f%%', colors=colors)
+    ax.set_title('Cluster Size Distribution')
+    
+    plt.tight_layout()
+    plt.savefig('result/comprehensive_clustering_analysis.png', dpi=300, bbox_inches='tight')
+    plt.show()
+    
+    return best_method, best_labels
+
+def create_detailed_heatmap(data, best_method, best_labels):
+    """Create detailed cluster characteristics heatmap"""
+    print("\nCreating detailed heatmap...")
+    
+    cluster_data = data.copy()
+    cluster_data['cluster'] = best_labels
+    
+    # Feature analysis
+    feature_cols = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                   'Special_Supply_Total_Units', 'General_Supply_Total_Units', 'GDP_Average']
+    
+    cluster_means = cluster_data.groupby('cluster')[feature_cols].mean()
+    
+    # Normalize for better visualization
+    cluster_means_norm = (cluster_means - cluster_means.min()) / (cluster_means.max() - cluster_means.min())
+    
+    # Create heatmap
+    plt.figure(figsize=(12, 8))
+    
+    # Rename columns for better display
+    display_names = {
+        'Special_Supply_Competition_Rate': 'Special Supply\nCompetition Rate',
+        'General_Supply_Competition_Rate': 'General Supply\nCompetition Rate',
+        'Special_Supply_Total_Units': 'Special Supply\nTotal Units',
+        'General_Supply_Total_Units': 'General Supply\nTotal Units',
+        'GDP_Average': 'GDP Average'
+    }
+    
+    cluster_means_norm_display = cluster_means_norm.rename(columns=display_names)
+    
+    sns.heatmap(cluster_means_norm_display.T, annot=True, cmap='RdYlBu_r', fmt='.2f',
+                cbar_kws={'label': 'Normalized Value (0-1 scale)'})
+    plt.title('Cluster Characteristics Heatmap (Normalized)', fontsize=14, fontweight='bold')
+    plt.xlabel('Cluster')
+    plt.ylabel('Features')
+    
+    plt.tight_layout()
+    plt.savefig('result/cluster_characteristics_heatmap.png', dpi=300, bbox_inches='tight')
+    plt.show()
+    
+    return cluster_means
+
+def save_comprehensive_results(data, best_method, best_labels, cluster_means):
+    """Save all analysis results to files"""
+    print("\nSaving comprehensive results...")
+    
+    # Create results directory
+    os.makedirs('result', exist_ok=True)
+    
+    # Save cluster assignments with all data
+    cluster_data = data.copy()
+    cluster_data['cluster'] = best_labels
+    cluster_data.to_csv('result/clustering_results_detailed.csv', index=False)
+    
+    # Save cluster summary statistics
+    feature_cols = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                   'Special_Supply_Total_Units', 'General_Supply_Total_Units', 'GDP_Average']
+    
+    cluster_summary = cluster_data.groupby('cluster')[feature_cols].agg(['mean', 'std', 'min', 'max']).round(2)
+    cluster_summary.to_csv('result/cluster_detailed_summary.csv')
+    
+    # Save cluster means (normalized)
+    cluster_means_norm = (cluster_means - cluster_means.min()) / (cluster_means.max() - cluster_means.min())
+    cluster_means_norm.to_csv('result/cluster_normalized_means.csv')
+    
+    # Save region-cluster mapping
+    region_cluster_map = cluster_data[['Region_EN', 'cluster']].sort_values('cluster')
+    region_cluster_map.to_csv('result/region_cluster_mapping.csv', index=False)
+    
+    print("Comprehensive results saved:")
+    print("- result/clustering_results_detailed.csv")
+    print("- result/cluster_detailed_summary.csv") 
+    print("- result/cluster_normalized_means.csv")
+    print("- result/region_cluster_mapping.csv")
+
+def print_comprehensive_analysis(data, best_method, best_labels):
+    """Print comprehensive analysis results"""
+    print(f"\n{'='*60}")
+    print(f"COMPREHENSIVE CLUSTERING ANALYSIS RESULTS")
+    print(f"{'='*60}")
+    print(f"Best clustering method: {best_method}")
+    
+    cluster_data = data.copy()
+    cluster_data['cluster'] = best_labels
+    
+    feature_cols = ['Special_Supply_Competition_Rate', 'General_Supply_Competition_Rate', 
+                   'Special_Supply_Total_Units', 'General_Supply_Total_Units', 'GDP_Average']
+    
+    print(f"\nNumber of clusters: {len(set(best_labels))}")
+    print(f"Total regions analyzed: {len(data)}")
+    
+    print(f"\n{'='*40}")
+    print("CLUSTER COMPOSITION BY REGION")
+    print(f"{'='*40}")
+    for cluster_id in range(len(set(best_labels))):
+        regions = cluster_data[cluster_data['cluster'] == cluster_id]['Region_EN'].tolist()
+        print(f"Cluster {cluster_id} ({len(regions)} regions): {', '.join(regions)}")
+    
+    print(f"\n{'='*40}")
+    print("CLUSTER AVERAGE CHARACTERISTICS")
+    print(f"{'='*40}")
+    cluster_summary = cluster_data.groupby('cluster')[feature_cols].mean().round(2)
+    print(cluster_summary)
+    
+    print(f"\n{'='*40}")
+    print("DETAILED CLUSTER INTERPRETATION")
+    print(f"{'='*40}")
+    
+    overall_avg_gdp = cluster_data['GDP_Average'].mean()
+    overall_avg_comp = cluster_data['General_Supply_Competition_Rate'].mean()
+    
+    for cluster_id in range(len(set(best_labels))):
+        cluster_subset = cluster_data[cluster_data['cluster'] == cluster_id]
+        regions = cluster_subset['Region_EN'].tolist()
+        
+        avg_gdp = cluster_subset['GDP_Average'].mean()
+        avg_comp = cluster_subset['General_Supply_Competition_Rate'].mean()
+        avg_special_comp = cluster_subset['Special_Supply_Competition_Rate'].mean()
+        total_supply = cluster_subset['General_Supply_Total_Units'].sum()
+        total_special_supply = cluster_subset['Special_Supply_Total_Units'].sum()
+        
+        print(f"\nCluster {cluster_id} Analysis:")
+        print(f"  Regions: {', '.join(regions)}")
+        print(f"  Economic Profile:")
+        print(f"    - Average GDP: {avg_gdp:,.0f} (100M KRW)")
+        print(f"    - GDP Level: {'High' if avg_gdp > overall_avg_gdp else 'Low'} (vs national avg: {overall_avg_gdp:,.0f})")
+        print(f"  Housing Market Profile:")
+        print(f"    - General Supply Competition Rate: {avg_comp:.2f}:1")
+        print(f"    - Special Supply Competition Rate: {avg_special_comp:.2f}:1")
+        print(f"    - Competition Level: {'High' if avg_comp > overall_avg_comp else 'Low'} (vs national avg: {overall_avg_comp:.2f})")
+        print(f"  Supply Volume:")
+        print(f"    - Total General Supply Units: {total_supply:,.0f}")
+        print(f"    - Total Special Supply Units: {total_special_supply:,.0f}")
+        
+        # Cluster characterization
+        if avg_gdp > overall_avg_gdp and avg_comp > overall_avg_comp:
+            char = "High GDP, High Competition (Premium Markets)"
+        elif avg_gdp > overall_avg_gdp and avg_comp <= overall_avg_comp:
+            char = "High GDP, Low Competition (Stable Premium Markets)"
+        elif avg_gdp <= overall_avg_gdp and avg_comp > overall_avg_comp:
+            char = "Low GDP, High Competition (Emerging Markets)"
+        else:
+            char = "Low GDP, Low Competition (Regional Markets)"
             
-        # 최적 클러스터링 결과 선택
-        best_method = max(self.cluster_results.keys(), 
-                         key=lambda x: self.cluster_results[x]['silhouette'])
-        
-        labels = self.cluster_results[best_method]['labels']
-        
-        # 클러스터별 통계 계산
-        cluster_data = self.processed_data.copy()
-        cluster_data['cluster'] = labels
-        
-        print(f"\n=== {best_method} 클러스터별 상세 통계 ===")
-        
-        feature_cols = ['특별공급_경쟁률_평균', '일반공급_경쟁률_평균', 
-                       '특별공급_총세대수', '일반공급_총세대수', 'GDP_평균']
-        
-        for cluster_id in range(len(set(labels))):
-            cluster_subset = cluster_data[cluster_data['cluster'] == cluster_id]
-            
-            print(f"\n--- Cluster {cluster_id} ---")
-            print(f"지역: {', '.join(cluster_subset['시도'].tolist())}")
-            print(f"지역 수: {len(cluster_subset)}")
-            
-            for col in feature_cols:
-                mean_val = cluster_subset[col].mean()
-                std_val = cluster_subset[col].std()
-                print(f"{col}: {mean_val:.2f} (±{std_val:.2f})")
-        
-        # 클러스터 간 차이 분석
-        print(f"\n=== 클러스터 간 특성 비교 ===")
-        cluster_summary = cluster_data.groupby('cluster')[feature_cols].agg(['mean', 'std']).round(2)
-        print(cluster_summary)
-        
-        return cluster_summary
+        print(f"  Market Characterization: {char}")
 
 def main():
-    """
-    메인 실행 함수
-    """
-    print("=== 부동산 데이터 클러스터링 분석 시작 ===")
+    """Main execution function"""
+    print("="*60)
+    print("REAL ESTATE DATA CLUSTERING ANALYSIS")
+    print("="*60)
     
-    # 분석 객체 생성
-    analyzer = RealEstateClusteringAnalysis()
+    # Load and preprocess data
+    data = load_and_prepare_data()
     
-    # 데이터 로딩
-    analyzer.load_data()
+    # Perform clustering analysis
+    results, X_scaled, scaler = perform_clustering_analysis(data)
     
-    # 클러스터링 데이터 준비
-    processed_data = analyzer.prepare_clustering_data()
+    # Create comprehensive visualizations
+    best_method, best_labels = create_comprehensive_visualization(data, results, X_scaled)
     
-    if processed_data is not None:
-        # 클러스터링 수행
-        analyzer.perform_clustering()
-        
-        # 결과 시각화
-        analyzer.visualize_clusters()
-        
-        # 상세 통계 생성
-        analyzer.generate_cluster_statistics()
-        
-        print("\n=== 분석 완료 ===")
-        print("결과 이미지가 'clustering_analysis_results.png'로 저장되었습니다.")
-    else:
-        print("데이터 준비에 실패했습니다.")
+    # Create detailed heatmap
+    cluster_means = create_detailed_heatmap(data, best_method, best_labels)
+    
+    # Save comprehensive results
+    save_comprehensive_results(data, best_method, best_labels, cluster_means)
+    
+    # Print comprehensive analysis
+    print_comprehensive_analysis(data, best_method, best_labels)
+    
+    print(f"\n{'='*60}")
+    print("ANALYSIS COMPLETE")
+    print(f"{'='*60}")
+    print("All results saved in result/ directory:")
+    print("📊 Visualizations:")
+    print("  - comprehensive_clustering_analysis.png")
+    print("  - cluster_characteristics_heatmap.png")
+    print("📄 Data Files:")
+    print("  - clustering_results_detailed.csv")
+    print("  - cluster_detailed_summary.csv")
+    print("  - cluster_normalized_means.csv")
+    print("  - region_cluster_mapping.csv")
 
 if __name__ == "__main__":
     main() 

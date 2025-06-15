@@ -1,0 +1,6 @@
+,Special_Supply_Competition_Rate,Special_Supply_Competition_Rate,Special_Supply_Competition_Rate,Special_Supply_Competition_Rate,General_Supply_Competition_Rate,General_Supply_Competition_Rate,General_Supply_Competition_Rate,General_Supply_Competition_Rate,Special_Supply_Total_Units,Special_Supply_Total_Units,Special_Supply_Total_Units,Special_Supply_Total_Units,General_Supply_Total_Units,General_Supply_Total_Units,General_Supply_Total_Units,General_Supply_Total_Units,GDP_Average,GDP_Average,GDP_Average,GDP_Average
+,mean,std,min,max,mean,std,min,max,mean,std,min,max,mean,std,min,max,mean,std,min,max
+cluster,,,,,,,,,,,,,,,,,,,,
+0,1.42,1.43,0.09,4.59,14.52,9.58,2.16,42.39,21025.79,11466.18,124,44093,24402.93,11527.99,6543,49021,85235779.19,34327824.27,24350909.0,139816277.67
+1,59.12,4.32,56.06,62.17,203.12,144.5,100.94,305.29,9933.0,9726.96,3055,16811,14551.5,16886.42,2611,26492,271965566.5,361881314.55,16076835.0,527854298.0
+2,5.11,,5.11,5.11,20.6,,20.6,20.6,144467.0,,144467,144467,156417.0,,156417,156417,581423329.33,,581423329.33,581423329.33
