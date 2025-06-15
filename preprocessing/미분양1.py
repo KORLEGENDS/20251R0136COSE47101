@@ -4,17 +4,27 @@ import re
 
 def process_unsold_housing_data(input_file, output_file):
     
-    # CSV 파일 읽기 (euc-kr 인코딩)
-    try:
-        df = pd.read_csv(input_file, encoding='euc-kr')
-        print(f"원본 데이터 크기: {df.shape}")
-    except UnicodeDecodeError:
-        print("euc-kr 인코딩 실패, cp949로 시도...")
+    # CSV 파일 읽기 (다양한 인코딩 시도)
+    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin-1']
+    df = None
+    
+    for encoding in encodings:
         try:
-            df = pd.read_csv(input_file, encoding='cp949')
-        except UnicodeDecodeError:
-            print("cp949 인코딩 실패, utf-8로 시도...")
-            df = pd.read_csv(input_file, encoding='utf-8')
+            print(f"{encoding} 인코딩으로 시도 중...")
+            df = pd.read_csv(input_file, encoding=encoding)
+            print(f"✅ {encoding} 인코딩으로 성공!")
+            break
+        except UnicodeDecodeError as e:
+            print(f"❌ {encoding} 인코딩 실패: {str(e)[:100]}...")
+            continue
+        except Exception as e:
+            print(f"❌ {encoding} 인코딩 중 다른 오류: {str(e)[:100]}...")
+            continue
+    
+    if df is None:
+        raise ValueError("모든 인코딩으로 파일 읽기에 실패했습니다.")
+    
+    print(f"원본 데이터 크기: {df.shape}")
     
     # 컬럼명 확인
     columns = df.columns.tolist()
@@ -88,9 +98,18 @@ def process_unsold_housing_data(input_file, output_file):
     print(f"첫 번째 날짜 컬럼 (정렬 후): {final_columns[3] if len(final_columns) > 3 else 'None'}")
     print(f"마지막 날짜 컬럼 (정렬 후): {final_columns[-1] if len(final_columns) > 3 else 'None'}")
     
-    # 새로운 CSV 파일로 저장
-    final_df.to_csv(output_file, index=False, encoding='euc-kr')
-    print(f"\n정리된 데이터가 '{output_file}'에 저장되었습니다.")
+    # 새로운 CSV 파일로 저장 (UTF-8로 저장)
+    try:
+        final_df.to_csv(output_file, index=False, encoding='utf-8-sig')
+        print(f"\n✅ 정리된 데이터가 '{output_file}'에 저장되었습니다.")
+    except Exception as e:
+        print(f"❌ 파일 저장 중 오류: {e}")
+        # 대안으로 cp949 시도
+        try:
+            final_df.to_csv(output_file, index=False, encoding='cp949')
+            print(f"✅ cp949 인코딩으로 '{output_file}'에 저장되었습니다.")
+        except:
+            print(f"❌ 파일 저장 실패")
     
     return final_df
 
@@ -254,14 +273,27 @@ def create_summary_statistics(df, output_file=None):
 # 메인 실행 코드
 if __name__ == "__main__":
     # 파일 경로 설정
-    input_file = '미분양주택현황.csv'
+    input_file = '../data/supply/미분양주택현황.csv'
     output_file = 'result/미분양주택현황_정리_2013_2024.csv'
     
     try:
         print("=== 미분양주택현황 데이터 정리 ===")
         
-        # 원본 데이터 로드 (분석용)
-        original_df = pd.read_csv(input_file, encoding='euc-kr')
+        # 원본 데이터 로드 (분석용) - 다양한 인코딩 시도
+        encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin-1']
+        original_df = None
+        
+        for encoding in encodings:
+            try:
+                original_df = pd.read_csv(input_file, encoding=encoding)
+                print(f"원본 데이터 읽기 성공: {encoding}")
+                break
+            except:
+                continue
+        
+        if original_df is None:
+            print("원본 데이터를 읽을 수 없습니다.")
+            exit(1)
         
         # 데이터 처리 실행
         processed_df = process_unsold_housing_data(input_file, output_file)
