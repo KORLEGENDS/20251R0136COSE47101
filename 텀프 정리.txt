@@ -1,0 +1,149 @@
+두 축은 모두 “기존 생활권 + 후속 세대 신도시”라는 연속성을 갖추고, GTX·지하철 연장 등 교통호재로 강남 30 분 통근권을 달성하거나 달성 예정이며, 거래량·청약경쟁률이 높아 시계열·패널 데이터 확보가 용이할 것 같아요.
+
+동탄·왕숙은 거래량 지표 보강용 보조 후보군으로 활용하도록 하겠습니다.
+
+
+1) 연구에 사용할 실제 데이터
+2) 데이터에 따라 실제 클러스터 등 데이터 처리 방식 결정
+3) 모델 구현
+4) 평가 및 개선
+5) 인사이트 도출
+
+
+남부-강남축 시나리오
+<분당(1) → 판교·위례(2) → 교산(3)>
+- 동일 생활·통근권(강남권) 유지 → 교통·직주근접 변수 통일
+- 30년 (분당) - 15년 (판교·위례) - 향후 5년 (교산) 연속 시계열 확보
+- 분당·판교의 성공 사례(IT·정책수요 효과) → 교산 예측 벤치마크 적합
+
+북서축 시나리오
+<일산(1) → 김포 한강(2) → 창릉(3)>
+- 행정구역·생활권 일치(고양·김포·고양) → 지역 고정효과 제어
+- GTX-A(창릉·일산)·김포도시철도 등 교통개선 공통 이벤트 변수 활용
+
+
+
+데이터 수집 대상은
+① 남부-강남축(분당'91 → 판교(분당에 포함)·위례'13 → 하남 교산)과
+② 북서축(일산'95 → 김포 한강 → 고양 창릉)를
+목표로 해서, 가격, 수요 지표, 공급 지표, 교통 지표 등 보고서에 언급된 데이터 구성 및 변수를 사용하고자 합니다.
+
+0. 분당신도시(1기)
+ - 경기도 성남시 분당구
+
+1. 일산신도시(1기) 
+ - 경기도 고양시 일산동구(백석동, 장항2동, 마두동, 정발산동) 일산서구(주엽동, 대화동, 일산3동)
+
+2. 위례신도시(2기; 08~17)
+ - 서울특별시 송파구 (장지동, 거여동)
+ - 경기도 성남시 (수정구 창곡동, 복정동)
+ - 경기도 하남시 (학암동)
+
+3. 판교신도시(2기; 03~16)
+ - 경기도 성남시 분당구 (백현동, 삼평동, 판교동, 운중동)
+
+4. 한강신도시(2기; 06~17)
+ - 경기도 김포시 (구래동, 마산동, 장기동, 운양동)
+
+5. 교산신도시(3기; 19~28)
+ - 경기도 하남시 (천현동, 항동, 하사창동, 교산동, 상사창동, 춘궁동, 덕풍동, 창우동, 상산곡동, 광암동)
+
+
+
+6. 창릉신도시(3기; 20~29)
+ - 경기도 고양시 덕양구 ( 원흥동, 동산동, 용두동, 향동동, 화전동, 도내동, 행신동, 화정동, 성사동)
+
+
+
+
+1. 경기도 성남시 분당구
+2. 경기도 김포시
+3. 경기도 하남시
+4. 경기도 고양시
+5. 서울특별시 송파구
+
+
+
+1. 가격·거래: KB·부동산원 매매·전세지수, 실거래가, 청약경쟁률
+2. 공급: 분양·입주 물량, 지구계획·보상률, GTX/철도 공정률
+3. 교통·접근성: 강남·CBD 통근시간, 노선 개통 이벤트 더미
+4. 거시·수요: 금리, LTV/DTI 강도, 보유세율·양도세율
+5. 지역 통제: 고용률, GRDP, 인구증감
+
+
+
+
+- 데이터 및 분석 방법
+본 연구에서는 국토교통부, 한국부동산원, 주택도시보증공사(HUG), KB부동산/리브부동산 등 공신력 있는 공공·민간 데이터 소스를 모두 활용하였습니다. 분석 데이터는 연도별/분기별 패널 자료로 구축되었으며, 신도시별 시계열로 다양한 변수를 포함합니다. 주요 데이터 구성과 변수는 다음과 같습니다:
+•	가격/수요 지표: 아파트 실거래가격 (국토부 실거래가 공개시스템), 분양가 (HUG 분양가자료), 청약 경쟁률 (LH·청약홈 자료) 등과 KB부동산 및 부동산원의 매매지수·전세지수.
+•	공급 지표: 신도시별 연도별 분양 물량 (예정 및 실제), 입주 물량, 지구계획 승인율, 토지 보상률 등.
+•	교통 지표: 통근 시간 (신도시에서 서울 강남 및 도심까지 대중교통 소요시간), 철도 개통 진행률 (GTX, 지하철 연장 등 공정률), 교통개통 더미 변수 (개통 시점 전후 효과).
+•	거시 정책 변수: 주담대 금리 (한국은행 기준금리 및 시중금리), DTI/LTV 규제 수준 변화, 부동산 세제 (보유세·양도세 중과 등 정책변화 여부).
+•	지역 경제 변수: 지역 고용률, 지역 GRDP, 인구 증감 (통계청 및 지자체 자료) 등 신도시가 속한 도시의 경제 활력 지표.
+
+
+국토교통부 실거래가 공개 시스템 (2006~)
+
+한국부동산원(r-one)
+https://www.reb.or.kr/r-one/portal/stat/easyStatPage/T244183132827305.do
+1.매매가격지수(주별)
+2. 전세가격지수(월별)
+3.행정구역별아파트거래현황(월별)
+
+
+국세청
+https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?mi=2312&cntntsId=7711
+1. 양도세
+
+k-mbs
+https://kmbs.hf.go.kr/biz/IssueDetl/getIssueDetl.do?SUB_MENU_ID=NO0011&MENU_ID=SM4010&SES_MENU_ID=KM0004
+1. ltv/dti
+
+청약홈
+https://www.applyhome.co.kr/ai/aia/selectAPTRemndrLttotPblancListView.do
+1. 청약 경쟁률
+
+행안부
+https://jumin.mois.go.kr/
+1. 인구수 변화
+
+국토교통부
+https://stat.molit.go.kr/portal/cate/statMetaView.do?hRsId=488
+분양실적
+
+kosis
+https://kosis.kr/statHtml/statHtml.do?sso=ok&returnurl=https%3A%2F%2Fkosis.kr%3A443%2FstatHtml%2FstatHtml.do%3Fconn_path%3DMT_ZTITLE%26list_id%3DM1_6%26obj_var_id%3D%26seqNo%3D%26tblId%3DDT_MLTM_2202%26vw_cd%3DMT_ZTITLE%26itm_id%3D%26language%3Dkor%26lang_mode%3Dko%26orgId%3D116%26
+1. 공급물량
+
+etax
+https://www.etaxkorea.net/sub/sub_page.php?sp=s010505&md=show&code=08&m_code=1
+1. 투기지역, 투기과열지역, 조정대상지역
+
+지표누리 e-나라지표
+https://www.index.go.kr/unity/potal/main/EachDtlPageDetail.do?idx_cd=1224
+1. 건축허가/착공/준공 현황
+
+
+한국부동산원API
+https://m.blog.naver.com/huridam/222924835008
+
+
+s-apt 문서공개시스템
+https://s-apt.seoul.go.kr/open/goOpenTargApt.do?sidoCd=1171000000&openTargYn=Y
+송파구 아파트
+
+경기도 공공데이터 포털
+https://data.gg.go.kr/portal/mainPage.do
+1. 공동주택 관련 정보
+23년 이후
+ - https://data.gg.go.kr/portal/data/service/selectServicePage.do?page=1&rows=10&sortColumn=&sortDirection=&infId=8TJ8O0SXDQSPN0SAE83332862202&infSeq=2&order=&loc=&searchWord=%EA%B3%B5%EB%8F%99%EC%A3%BC%ED%83%9D
+23년 이전
+ - https://data.gg.go.kr/portal/data/service/selectServicePage.do?infId=VUPYJVKMYEYIKOQDILSR30099546&infSeq=1
+
+국토교통부
+https://rt.molit.go.kr/pt/xls/xls.do?mobileAt=
+- 실거래가
+
+행안부-주소기반산업지원서비스
+https://business.juso.go.kr/addrlink/confmKeyRequestSubmit.do
+- 법정동주소 -> 도로명주소 변환
