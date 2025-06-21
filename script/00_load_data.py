@@ -18,36 +18,34 @@ logging.basicConfig(
 # ---------------------------------------------------------------------------
 # 1. 구성 ── 분석 레이어별 폴더 패턴.
 # ---------------------------------------------------------------------------
-LAYER_CONFIG: Dict[str, Dict[str, str]] = {
-    "A": {
+DATA_LAYER_CONFIG: Dict[str, Dict[str, str]] = {
+    "complex_meta": {
         "desc": "단지 메타 (1·2·3기)",
-        # ex) 아파트_매매/김포한강_06_24/meta.csv  (nested)
-        # 아파트매매 폴더 외 공공데이터 메타 파일도 포함
         "pattern": "아파트_매매/**/*06_24/*.csv|아파트_매매/한국부동산원_공동주택 단지 식별정보_기본정보_*.csv",
         "outfile": "layer_A_complex_meta",
     },
-    "B": {
+    "sales_transactions": {
         "desc": "실거래 기록 (1·2기)",
-        # ex) transactions 파일 및 개별 단지 거래 CSV
         "pattern": "transactions/*거래*.csv|아파트_매매/**/*실거래가*.csv",
         "outfile": "layer_B_transactions",
     },
-    "C": {
+    "market_macro_index": {
         "desc": "시장 지수·거시 변수",
         "pattern": "transactions/*가격지수*.csv|else/*.csv",
         "outfile": "layer_C_macro_index",
     },
-    "D": {
+    "supply_info": {
         "desc": "공급 (미분양·입주 예정)",
         "pattern": "supply/*.csv",
         "outfile": "layer_D_supply",
     },
-    "E": {
+    "subscription_competition": {
         "desc": "청약 경쟁률",
         "pattern": "competition/*.csv",
         "outfile": "layer_E_competition",
     },
 }
+
 
 # ---------------------------------------------------------------------------
 # 2. 헬퍼
