@@ -128,12 +128,14 @@ def clean_numeric_data(df, basic_cols):
         return cleaned_df
     
     # 기본 컬럼 인덱스들을 실제 컬럼 인덱스로 변환
-    actual_basic_cols = []
-    for i, col_idx in enumerate(basic_cols):
-        if col_idx < len(cleaned_df.columns):
-            actual_basic_cols.append(col_idx)
-        else:
-            print(f"기본 컬럼 인덱스 {col_idx}가 범위를 벗어남")
+    max_col_index = len(cleaned_df.columns)
+    actual_basic_cols = [idx for idx in basic_cols if idx < max_col_index]
+
+    # 경고 메시지 출력 (필요한 경우에만)
+    invalid_indices = [idx for idx in basic_cols if idx >= max_col_index]
+    if invalid_indices:
+        print(f"기본 컬럼 인덱스가 범위를 벗어남: {invalid_indices}")
+
     
     # 기본 컬럼 제외한 나머지 컬럼들 (숫자 데이터 컬럼들)
     all_col_indices = list(range(len(cleaned_df.columns)))
