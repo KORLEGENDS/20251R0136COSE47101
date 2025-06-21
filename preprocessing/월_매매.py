@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from collections import defaultdict
 
 def filter_monthly_apartment_price_data(input_file, output_file):
 
@@ -78,21 +79,21 @@ def analyze_data_coverage(df):
     if date_columns:
         print(f"데이터 기간: {date_columns[0]} ~ {date_columns[-1]}")
         print(f"총 월 수: {len(date_columns)}개월")
-        
-        # 연도별 월 수 계산
-        years = {}
-        for date_col in date_columns:
-            try:
-                # "2013년 1월" 형식에서 연도 추출
-                if '년' in date_col:
-                    year = date_col.split('년')[0].strip()
-                    years[year] = years.get(year, 0) + 1
-            except:
-                continue
-        
-        print("\n연도별 월 수:")
-        for year, count in sorted(years.items()):
-            print(f"  {year}년: {count}개월")
+    
+    # 연도별 월 수 계산
+    years = defaultdict(int)
+
+    # "YYYY년 M월" 형식만 추출
+    for date_col in date_columns:
+        if '년' in date_col:
+            year = date_col.split('년')[0].strip()
+            if year.isdigit():  # '2013' 같은 숫자만 카운트
+                years[year] += 1
+
+    print("\n연도별 월 수:")
+    for year in sorted(years):
+        print(f"  {year}년: {years[year]}개월")
+
         
         # 2013년부터 2024년까지 144개월이 있는지 확인
         expected_months = 12 * 12  # 12년 * 12개월
