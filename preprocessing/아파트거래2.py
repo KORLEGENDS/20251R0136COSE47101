@@ -29,11 +29,17 @@ def extract_apartment_trade_data(input_file, output_file):
     end_col_idx = None
     
     # 2013년 1월 컬럼 찾기
-    for i, col_name in enumerate(header_row):
-        if pd.notna(col_name) and str(col_name).strip() == '2013년 1월':
-            start_col_idx = i
-            print(f"2013년 1월 컬럼 인덱스: {i}")
-            break
+    start_col_idx = next(
+        (i for i, col_name in enumerate(header_row)
+         if pd.notna(col_name) and str(col_name).strip() == '2013년 1월'),
+        None  # 없을 경우 반환할 기본값
+    )
+
+    if start_col_idx is not None:
+        print(f"2013년 1월 컬럼 인덱스: {start_col_idx}")
+    else:
+        print("2013년 1월 컬럼을 찾을 수 없습니다.")
+
     
     # 2024년 12월 컬럼 찾기 (마지막 것을 찾기 위해 역순으로)
     for i in range(len(header_row)-1, -1, -1):
