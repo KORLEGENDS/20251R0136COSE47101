@@ -83,6 +83,7 @@
 
 ### 1. K-means 클러스터링을 통한 시장 세분화
 ![클러스터링 결과](https://github.com/KORLEGENDS/20251R0136COSE47101/blob/main/report/figure/comprehensive_clustering_analysis.png)
+(a) 주성분 분석(PCA) 기반 군집 시각화 (b) 실루엣 점수 비교 (c) GDP와 경쟁률 관계 분석 (d) 군집별 GDP 분포 (e) 군집별 공급 물량 분포 (f) 군집별 구성 비율
 
 전국 17개 시도를 3개의 클러스터로 분류 (Silhouette Score: 0.713):
 
