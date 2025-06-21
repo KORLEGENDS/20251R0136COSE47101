@@ -29,14 +29,9 @@ def extract_gdp_from_2013():
     print(f"\n기본 컬럼: {basic_columns}")
     
     # 2013년부터의 연도 컬럼 찾기
-    year_columns = []
-    for col in df.columns:
-        if '2013' in str(col) or '2014' in str(col) or '2015' in str(col) or \
-           '2016' in str(col) or '2017' in str(col) or '2018' in str(col) or \
-           '2019' in str(col) or '2020' in str(col) or '2021' in str(col) or \
-           '2022' in str(col) or '2023' in str(col):
-            year_columns.append(col)
-    
+    target_years = [str(year) for year in range(2013, 2024)]
+    year_columns = [col for col in df.columns if any(y in str(col) for y in target_years)]
+
     print(f"2013년부터의 연도 컬럼: {year_columns}")
     
     # 선택할 컬럼들 = 기본 컬럼 + 2013년부터의 연도 컬럼
