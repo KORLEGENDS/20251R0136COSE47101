@@ -26,25 +26,25 @@ def extract_specific_regions_employment_data(input_file, output_file, target_reg
     
     # 목표 지역들과 매칭되는 행 찾기
     target_regions_variations = []
-    
+
+    # 지역별 변형 매핑 정의
+    region_variants = {
+        '서울 송파구': ['송파구', '서울송파구', '서울특별시 송파구'],
+        '하남시': ['경기 하남시', '경기도 하남시'],
+        '성남시': ['경기 성남시', '경기도 성남시'],
+        '김포시': ['경기 김포시', '경기도 김포시'],
+        '고양시': ['경기 고양시', '경기도 고양시'],
+    }
+
     # 각 목표 지역에 대해 가능한 변형들 고려
     for target in target_regions:
         # 기본 형태
         target_regions_variations.append(target)
-        
-        # 서울 송파구 -> 송파구 형태도 고려
-        if target == '서울 송파구':
-            target_regions_variations.extend(['송파구', '서울송파구', '서울특별시 송파구'])
-        elif target == '하남시':
-            target_regions_variations.extend(['경기 하남시', '경기도 하남시'])
-        elif target == '성남시':
-            target_regions_variations.extend(['경기 성남시', '경기도 성남시'])
-        elif target == '김포시':
-            target_regions_variations.extend(['경기 김포시', '경기도 김포시'])
-        elif target == '고양시':
-            target_regions_variations.extend(['경기 고양시', '경기도 고양시'])
-    
-    print(f"\\n검색할 지역 변형들: {target_regions_variations}")
+
+        # 사전에 정의된 변형이 있다면 추가
+        target_regions_variations.extend(region_variants.get(target, []))
+
+    print(f"\n검색할 지역 변형들: {target_regions_variations}")
     
     # 매칭되는 행들 찾기
     matched_rows = pd.DataFrame()
