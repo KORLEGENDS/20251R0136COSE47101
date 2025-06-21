@@ -82,6 +82,7 @@
 ## 🔍 주요 분석 결과
 
 ### 1. K-means 클러스터링을 통한 시장 세분화
+![클러스터링 결과](https://github.com/KORLEGENDS/20251R0136COSE47101/blob/main/report/figure/comprehensive_clustering_analysis.png)
 
 전국 17개 시도를 3개의 클러스터로 분류 (Silhouette Score: 0.713):
 
